@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Alien Detector Pro + Proof Maker</title>
+    <title>Alien Detector Pro: Evidence Collector</title>
     <style>
         body, html {
             margin: 0;
@@ -57,7 +57,6 @@
             box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.2);
         }
 
-        /* Animated Radar Laser Line */
         #radar-line {
             position: absolute;
             top: 0;
@@ -75,7 +74,6 @@
             100% { top: 0%; }
         }
 
-        /* Target Reticle in the Center */
         #reticle {
             position: absolute;
             top: 50%;
@@ -180,6 +178,7 @@
             letter-spacing: 1px;
             outline: none;
             -webkit-tap-highlight-color: transparent;
+            transition: border-color 0.2s ease;
         }
 
         #scan-btn:active {
@@ -189,59 +188,68 @@
         }
 
         #scan-btn:disabled {
-            border-color: #555;
+            border-color: #555 !important;
             color: #555;
             box-shadow: none;
             background-color: rgba(50, 50, 50, 0.2);
         }
 
-        /* --- PROOF SCREEN (MODAL) --- */
+        /* --- EVIDENCE REPORT SCREEN --- */
         #proof-screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: #000;
-            display: none; /* Hidden by default */
+            background-color: rgba(0,0,0,0.9);
+            display: none;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 100; /* On top of everything */
+            z-index: 100;
             padding: 20px;
             box-sizing: border-box;
         }
 
         #proof-image {
             width: 100%;
-            max-height: 70%;
-            object-fit: contain; /* Shows the full photo */
+            max-height: 75%;
+            object-fit: contain;
             border: 4px solid #f00;
             box-shadow: 0 0 30px #f00;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         #proof-header {
             color: #f00;
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-shadow: 0 0 10px #f00;
+            text-align: center;
+            width: 100%;
         }
 
         #dismiss-btn {
-            background-color: #f00;
-            color: #000;
-            border: none;
+            background-color: rgba(255, 0, 0, 0.2);
+            border: 2px solid #f00;
+            color: #f00;
             font-family: 'Courier New', Courier, monospace;
             font-size: 1.2rem;
             font-weight: bold;
-            padding: 15px 30px;
-            border-radius: 5px;
+            padding: 15px 35px;
+            border-radius: 30px;
             cursor: pointer;
             text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(255,0,0,0.3);
             -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+        
+        #dismiss-btn:active {
+            background-color: #f00;
+            color: #000;
         }
     </style>
 </head>
@@ -265,9 +273,9 @@
 </div>
 
 <div id="proof-screen">
-    <div id="proof-header">PROOF OF INFILTRATION</div>
+    <div id="proof-header">🚨 INFILTRATOR BIOMETRIC PROFILE 🚨</div>
     <img id="proof-image" src="" alt="Proof Photo">
-    <button id="dismiss-btn">OK</button>
+    <button id="dismiss-btn">ACKNOWLEDGE & RESUME WATCH</button>
 </div>
 
 <canvas id="canvas-processor" style="display:none;"></canvas>
@@ -278,18 +286,25 @@
     const statusText = document.getElementById('status-text');
     const scanBtn = document.getElementById('scan-btn');
     const radarLine = document.getElementById('radar-line');
-    const reticle = document.getElementById('reticle');
-    const reticleOuter = document.getElementById('reticle-outer');
     
-    // Proof elements
     const proofScreen = document.getElementById('proof-screen');
     const proofImage = document.getElementById('proof-image');
     const dismissBtn = document.getElementById('dismiss-btn');
     const canvas = document.getElementById('canvas-processor');
     const ctx = canvas.getContext('2d');
 
+    // Humorous Data
+    const data_species = ["Gigglotentacloid", "Nebula Snail", "Purple Gloop-Dropper", "Standard Gray (Boring)", "Fuzzy-Wuzzy Sock Snatcher", "Laser-Eyed Noodle", "Tentacled Tootsie-Pop"];
+    const data_planets = ["Planet Broccoli (Bad Luck)", "The Big Cheese Cluster", "Noodle Nebula Sector 4", "Broccoli Beta-9", "Sector X (Behind the Couch)", "The Void of Homework", "The Glitter Galaxy"];
+    const data_threats = ["MAXIMUM (Will not share dessert)", "VERY LOW (Will just hug you)", "HIGH (Dislikes loud noises and broccoli)", "UNKNOWN (Approach with glitter)", "MEDIUM (Steals TV remote batteries)", "VARIABLE (Depends if they had a nap)"];
+    const data_habits = ["Mimicking bird calls badly", "Counting bubbles in drinks", "Stealing only left shoes", "Leaving slime trails on carpet", "Hiding TV remotes", "Organizing bookshelves by smell", "Eating crayons (only red ones)"];
+
     let audioCtx;
     let scanInterval;
+    
+    // --- SECRET CHEAT VARIABLES ---
+    let holdTimer;
+    let forceAlien = false;
 
     function initAudio() {
         if (!audioCtx) {
@@ -306,31 +321,40 @@
 
         if (type === 'alien') {
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(400, audioCtx.currentTime + 0.25);
-            osc.frequency.linearRampToValueAtTime(900, audioCtx.currentTime + 0.5);
-            gainNode.gain.setValueAtTime(0.8, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(300, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.7, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.6);
+            osc.stop(audioCtx.currentTime + 0.4);
         } else if (type === 'camera') {
-            // Camera Shutter Snap
-            osc.type = 'noise';
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            // Recreating noise is complex, using a short burst sawtooth for simpler execution
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(2000, audioCtx.currentTime);
             osc.frequency.setValueAtTime(500, audioCtx.currentTime + 0.05);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.1);
+        } else if (type === 'human') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        } else if (type === 'beep') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
         }
-        // ... (removed other basic sounds for brevity) ...
     }
 
     async function setupCamera() {
         try {
-            // Need video capabilities for drawing
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' },
                 audio: false
@@ -343,62 +367,90 @@
         }
     }
 
-    function generateProofPhoto() {
-        // 1. Set canvas size to match video resolution
+    function pickRandom(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function generateEvidenceReport() {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-
-        // 2. Capture the current frame
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // 3. Draw alien proof elements
-        const viewWidth = canvas.width;
-        const viewHeight = canvas.height;
-        const centerX = viewWidth / 2;
-        const centerY = viewHeight / 2;
+        const w = canvas.width;
+        const h = canvas.height;
+        const margin = Math.floor(w * 0.05);
+        let yPos = Math.floor(h * 0.65); 
+        const lineHeight = Math.floor(h * 0.05); 
 
-        // --- Alien Green Tint Overlay ---
-        ctx.fillStyle = "rgba(0, 255, 0, 0.15)";
-        ctx.fillRect(0, 0, viewWidth, viewHeight);
+        const species = pickRandom(data_species);
+        const origin = pickRandom(data_planets);
+        const threat = pickRandom(data_threats);
+        const habit = pickRandom(data_habits);
 
-        // --- DRAW BIG ALIEN EYES (Manual drawing on canvas) ---
-        // Eye parameters based on the image size
-        const eyeWidth = viewWidth * 0.15;
-        const eyeHeight = eyeWidth * 1.5; // Tall slanted eyes
-        const eyeOffsetX = viewWidth * 0.1; // Distance from center
-        const eyeOffsetY = -viewHeight * 0.05; // Slightly above center reticle
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)"; 
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = Math.floor(w * 0.005); 
+        ctx.font = `bold ${Math.floor(h * 0.035)}px Courier New`; 
+        ctx.textAlign = "left";
 
-        // Left Eye (black slanted oval)
-        ctx.save();
-        ctx.fillStyle = "#000";
-        ctx.translate(centerX - eyeOffsetX, centerY + eyeOffsetY);
-        ctx.rotate(-Math.PI / 8); // Slant in
-        ctx.beginPath();
-        ctx.ellipse(0, 0, eyeWidth/2, eyeHeight/2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        const printLine = (label, value, color="#fff") => {
+            ctx.fillStyle = "rgba(0,0,0,0.5)"; 
+            ctx.fillRect(margin - 10, yPos - (lineHeight * 0.8), w - (margin * 2) + 20, lineHeight + 5);
 
-        // Right Eye
-        ctx.save();
-        ctx.fillStyle = "#000";
-        ctx.translate(centerX + eyeOffsetX, centerY + eyeOffsetY);
-        ctx.rotate(Math.PI / 8); // Slant in
-        ctx.beginPath();
-        ctx.ellipse(0, 0, eyeWidth/2, eyeHeight/2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+            ctx.fillStyle = "#ff0"; 
+            ctx.strokeText(`${label}:`, margin, yPos);
+            ctx.fillText(`${label}:`, margin, yPos);
 
-        // --- Text Proof Stamp ---
+            ctx.fillStyle = color; 
+            ctx.strokeText(value, margin + (ctx.measureText(`${label}: `).width), yPos);
+            ctx.fillText(value, margin + (ctx.measureText(`${label}: `).width), yPos);
+            yPos += lineHeight;
+        };
+
         ctx.fillStyle = "#f00";
-        ctx.font = `bold ${Math.floor(viewHeight * 0.04)}px Courier New`;
-        ctx.fillText(`ALIEN DETECTED`, 30, viewHeight - 50);
-        ctx.fillText(`CONFIRMED BIOMETRICS`, 30, viewHeight - 20);
+        ctx.font = `bold ${Math.floor(h * 0.05)}px Courier New`;
+        ctx.fillText(`ALIEN CONFIRMED`, margin, margin * 2);
 
-        // 4. Convert canvas to Image source and show proof screen
+        yPos = h - (lineHeight * 5); 
+        printLine("SPECIES", species);
+        printLine("ORIGIN", origin);
+        printLine("THREAT", threat, threat.includes("MAXIMUM") ? "#f00" : threat.includes("LOW") ? "#0f0" : "#fff");
+        printLine("HABIT", habit);
+
         proofImage.src = canvas.toDataURL('image/png');
         proofScreen.style.display = 'flex';
     }
 
+    // --- SECRET CHEAT EVENT LISTENERS ---
+    function startHoldTimer(e) {
+        // Start the 2-second countdown when the button is pressed
+        holdTimer = setTimeout(() => {
+            forceAlien = true; // Arm the cheat
+            
+            // Secret visual indicator: blink the button border red quickly
+            scanBtn.style.borderColor = "#f00";
+            setTimeout(() => {
+                scanBtn.style.borderColor = "#0f0";
+            }, 300);
+            
+        }, 2000); // 2000 milliseconds = 2 seconds
+    }
+
+    function cancelHoldTimer() {
+        // If they let go before 2 seconds, cancel the timer
+        clearTimeout(holdTimer);
+    }
+
+    // Listen for mouse/touch down to start the timer
+    scanBtn.addEventListener('mousedown', startHoldTimer);
+    scanBtn.addEventListener('touchstart', startHoldTimer, {passive: true});
+
+    // Listen for letting go or sliding off the button to cancel the timer
+    scanBtn.addEventListener('mouseup', cancelHoldTimer);
+    scanBtn.addEventListener('mouseleave', cancelHoldTimer);
+    scanBtn.addEventListener('touchend', cancelHoldTimer);
+
+    // --- MAIN SCAN LOGIC ---
     scanBtn.addEventListener('click', () => {
         initAudio();
         
@@ -409,25 +461,33 @@
         radarLine.style.opacity = "1";
         radarLine.style.animation = "scanMove 1.5s ease-in-out infinite";
         
-        // Removed intermediate beep noises to focus on implementation
+        let blipCount = 0;
+        scanInterval = setInterval(() => {
+            playSound('beep');
+            blipCount++;
+            if(blipCount >= 6) clearInterval(scanInterval);
+        }, 300);
+
         setTimeout(() => {
+            clearInterval(scanInterval);
             radarLine.style.opacity = "0";
             radarLine.style.animation = "none";
 
-            // 15% chance of detecting an Alien
-            const isAlien = Math.random() < 0.15; 
+            // Determine result: 15% chance randomly, OR 100% chance if cheat is armed
+            const isAlien = forceAlien || (Math.random() < 0.15); 
+            
+            // Reset the cheat back to false for the next scan
+            forceAlien = false; 
 
             if (isAlien) {
                 statusText.innerText = "⚠️ ALIEN DETECTED ⚠️";
                 statusText.classList.add('alien-active');
                 
-                // Red alert flash
                 let strobe = setInterval(() => {
-                    overlay.style.backgroundColor = overlay.style.backgroundColor === "rgba(255, 0, 0, 0.5)" ? "rgba(0, 0, 0, 0)" : "rgba(255, 0, 0, 0.5)";
-                }, 150);
-                setTimeout(() => clearInterval(strobe), 1200);
+                    overlay.style.backgroundColor = overlay.style.backgroundColor === "rgba(255, 0, 0, 0.7)" ? "rgba(0, 0, 0, 0)" : "rgba(255, 0, 0, 0.7)";
+                }, 100);
+                setTimeout(() => clearInterval(strobe), 1500);
 
-                // Siren Loop
                 let sirenCount = 0;
                 playSound('alien');
                 let sirenInterval = setInterval(() => {
@@ -436,20 +496,16 @@
                     if(sirenCount >= 2) clearInterval(sirenInterval);
                 }, 400);
 
-                // --- NEW PROOF LOGIC ---
                 setTimeout(() => {
-                    // Play camera sound and take photo
                     playSound('camera');
-                    generateProofPhoto();
-                }, 1500); // Take photo after some red flashing
+                    generateEvidenceReport();
+                }, 1700);
 
             } else {
-                statusText.innerText = "SUBJECT: HUMAN";
+                statusText.innerText = "SUBJECT: 100% HUMAN";
                 overlay.style.backgroundColor = "rgba(0, 255, 0, 0.25)";
+                playSound('human');
                 
-                // Simple happy chime sound logic removed for brevity
-
-                // Reset back to original state
                 setTimeout(() => {
                     statusText.innerText = "SYSTEM ONLINE";
                     overlay.style.backgroundColor = "rgba(0, 0, 0, 0)";
@@ -457,13 +513,11 @@
                 }, 2500);
             }
 
-        }, 2200); // Scan length
+        }, 2200); 
     });
 
     dismissBtn.addEventListener('click', () => {
-        // Close proof screen
         proofScreen.style.display = 'none';
-        // Reset main screen
         statusText.innerText = "SYSTEM ONLINE";
         statusText.classList.remove('alien-active');
         overlay.style.backgroundColor = "rgba(0, 0, 0, 0)";
