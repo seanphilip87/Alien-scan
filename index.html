@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alien Detector</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #video-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* The camera feed */
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures the video fills the screen */
+        }
+
+        /* The overlay that flashes colors */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0);
+            transition: background-color 0.2s ease;
+            pointer-events: none; /* Lets clicks pass through to the button */
+        }
+
+        /* UI Elements */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 40px 20px;
+            box-sizing: border-box;
+            pointer-events: none; /* Prevent blocking clicks */
+        }
+
+        #status-text {
+            color: #0f0;
+            text-shadow: 0 0 5px #000, 0 0 10px #0f0;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+
+        .alien-text {
+            color: #f00 !important;
+            text-shadow: 0 0 5px #000, 0 0 10px #f00 !important;
+        }
+
+        #scan-btn {
+            pointer-events: auto; /* Re-enable clicks for the button */
+            background-color: rgba(0, 255, 0, 0.2);
+            border: 2px solid #0f0;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 15px 40px;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px #0f0;
+            transition: all 0.2s ease;
+        }
+
+        #scan-btn:active {
+            background-color: #0f0;
+            color: #000;
+        }
+
+        #scan-btn:disabled {
+            border-color: #aaa;
+            color: #aaa;
+            box-shadow: none;
+            background-color: rgba(170, 170, 170, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+<div id="video-container">
+    <!-- playsinline is crucial for iOS so it doesn't pop out into a native player -->
+    <video id="camera" autoplay playsinline></video>
+    <div id="overlay"></div>
+    <div id="ui-layer">
+        <div id="status-text">System Ready</div>
+        <button id="scan-btn">Initiate Scan</button>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('camera');
+    const overlay = document.getElementById('overlay');
+    const statusText = document.getElementById('status-text');
+    const scanBtn = document.getElementById('scan-btn');
+
+    let audioCtx;
+
+    // --- Audio System (Web Audio API) ---
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playSound(type) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'alien') {
+            // Harsh, descending alarm sound
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        } else if (type === 'human') {
+            // Pleasant, high chime
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
+        } else if (type === 'scan') {
+            // Low pulsing hum
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
+        }
+    }
+
+    // --- Camera Setup ---
+    async function setupCamera() {
+        try {
+            // Request the rear camera
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' },
+                audio: false
+            });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+            statusText.innerText = "Camera Error";
+            statusText.classList.add('alien-text');
+        }
+    }
+
+    // --- Game Logic ---
+    scanBtn.addEventListener('click', () => {
+        // Initialize audio on first user interaction to bypass browser restrictions
+        initAudio();
+        
+        // 1. Start scanning phase
+        scanBtn.disabled = true;
+        statusText.innerText = "Analyzing subject...";
+        statusText.classList.remove('alien-text');
+        overlay.style.backgroundColor = "rgba(0, 255, 0, 0.1)"; // faint green pulse
+        playSound('scan');
+
+        // Simulate a delay for the "scan" to complete
+        setTimeout(() => {
+            
+            // 2. Determine result (e.g., 15% chance it's an alien)
+            const isAlien = Math.random() < 0.15; 
+
+            if (isAlien) {
+                statusText.innerText = "🚨 ALIEN DETECTED 🚨";
+                statusText.classList.add('alien-text');
+                overlay.style.backgroundColor = "rgba(255, 0, 0, 0.6)"; // Red alert flash
+                playSound('alien');
+                
+                // Add a strobe effect
+                let strobe = setInterval(() => {
+                    overlay.style.backgroundColor = overlay.style.backgroundColor === "rgba(255, 0, 0, 0.6)" ? "rgba(0, 0, 0, 0)" : "rgba(255, 0, 0, 0.6)";
+                }, 100);
+                setTimeout(() => clearInterval(strobe), 1500);
+
+            } else {
+                statusText.innerText = "✅ Human Verified";
+                overlay.style.backgroundColor = "rgba(0, 255, 0, 0.3)"; // Green success flash
+                playSound('human');
+            }
+
+            // 3. Reset after a few seconds
+            setTimeout(() => {
+                statusText.innerText = "System Ready";
+                statusText.classList.remove('alien-text');
+                overlay.style.backgroundColor = "rgba(0, 0, 0, 0)";
+                scanBtn.disabled = false;
+            }, 3000);
+
+        }, 1500); // 1.5 seconds of scanning
+    });
+
+    // Boot up the camera when the page loads
+    window.addEventListener('load', setupCamera);
+
+</script>
+</body>
+</html>
