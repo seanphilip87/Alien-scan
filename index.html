@@ -12,37 +12,33 @@
 
     <style>
         body, html {
-            margin: 0; padding: 0; height: 100%;
-            background-color: #000;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            user-select: none; -webkit-user-select: none;
-            color: #0f0;
+            margin: 0; padding: 0; height: 100%; background-color: #000;
+            font-family: 'Courier New', Courier, monospace; overflow: hidden;
+            user-select: none; -webkit-user-select: none; color: #0f0;
         }
 
-        /* --- CRT & VIGNETTE EFFECTS --- */
         .scanlines {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 4px, 3px 100%;
-            pointer-events: none; z-index: 6;
+            background-size: 100% 4px, 3px 100%; pointer-events: none; z-index: 6;
         }
         .vignette {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
-            pointer-events: none; z-index: 7;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9); pointer-events: none; z-index: 7;
         }
 
         #video-container { position: relative; width: 100vw; height: 100vh; display: none; }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        video { width: 100%; height: 100%; object-fit: cover; transition: filter 0.3s ease; }
         
+        .filter-night { filter: sepia(100%) hue-rotate(90deg) saturate(300%) contrast(150%); }
+        .filter-thermal { filter: invert(1) hue-rotate(180deg) saturate(200%) contrast(120%); }
+
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0); transition: background-color 0.1s ease;
             pointer-events: none; z-index: 5;
         }
 
-        /* --- HUD --- */
         #hud-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; z-index: 2; box-sizing: border-box;
@@ -72,25 +68,29 @@
         }
         @keyframes spin { 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
-        /* --- UI CONTROLS --- */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; flex-direction: column; justify-content: space-between; align-items: center;
-            padding: 40px 20px; box-sizing: border-box; z-index: 10; pointer-events: none;
+            padding: 40px 10px; box-sizing: border-box; z-index: 10; pointer-events: none;
         }
         
         .top-bar { display: flex; justify-content: space-between; width: 100%; pointer-events: auto; }
         
-        #score-display {
+        .info-panel {
             background: rgba(0, 20, 0, 0.8); border: 1px solid #0f0; padding: 10px;
-            border-radius: 5px; font-weight: bold; text-shadow: 0 0 5px #0f0;
+            border-radius: 5px; text-shadow: 0 0 5px #0f0; display: flex; flex-direction: column;
+            max-width: 50%;
         }
+        #agent-name-display { font-weight: bold; font-size: 1rem; color: #fff;}
+        #agent-rank-display { font-size: 0.75rem; color: #0f0; margin-top: 4px; text-transform: uppercase;}
         
-        #gallery-btn {
+        .btn-group { display: flex; flex-direction: column; gap: 5px; }
+        .btn-small {
             background: rgba(0, 255, 0, 0.2); border: 1px solid #0f0; color: #0f0;
-            padding: 10px; border-radius: 5px; font-family: inherit; font-weight: bold;
+            padding: 8px 12px; border-radius: 5px; font-family: inherit; font-weight: bold;
             cursor: pointer; text-shadow: 0 0 5px #0f0;
         }
+        .btn-small-yellow { border-color: #ff0; color: #ff0; background: rgba(255, 255, 0, 0.15); text-shadow: 0 0 5px #ff0; }
 
         #status-text {
             color: #0f0; text-shadow: 0 0 5px #000, 0 0 10px #0f0; font-size: 1.4rem;
@@ -107,11 +107,11 @@
             pointer-events: auto; background-color: rgba(0, 255, 0, 0.15); border: 2px solid #0f0;
             color: #0f0; font-family: inherit; font-size: 1.3rem; font-weight: bold;
             padding: 18px 45px; border-radius: 40px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+            transition: border-color 0.2s ease;
         }
         #scan-btn:active { background-color: #0f0; color: #000; }
         #scan-btn:disabled { border-color: #555 !important; color: #555; background-color: rgba(50, 50, 50, 0.2); }
 
-        /* --- SCREENS (Briefing, Proof, Gallery) --- */
         .modal-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.95); display: flex; flex-direction: column;
@@ -119,16 +119,34 @@
             padding: 20px; box-sizing: border-box;
         }
 
-        /* Briefing Specific */
-        #briefing-screen { display: flex; justify-content: flex-start; padding-top: 15vh; }
-        #briefing-text { font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px; text-shadow: 0 0 4px #0f0; min-height: 250px;}
-        #accept-btn {
-            background-color: #0f0; color: #000; border: none; font-family: inherit;
-            font-size: 1.3rem; font-weight: bold; padding: 15px 30px; border-radius: 5px;
-            cursor: pointer; box-shadow: 0 0 15px #0f0; display: none;
+        /* Profile Login Screen */
+        #profile-screen { z-index: 101; }
+        #profile-screen h1 { color: #0f0; text-shadow: 0 0 10px #0f0; text-align: center; }
+        #agent-input {
+            background: rgba(0,255,0,0.1); border: 2px solid #0f0; color: #fff;
+            font-family: inherit; font-size: 1.5rem; padding: 15px; text-align: center;
+            border-radius: 5px; margin-bottom: 20px; outline: none; width: 80%; text-transform: uppercase;
         }
+        #agent-input::placeholder { color: rgba(0,255,0,0.5); }
+        .green-btn {
+            background-color: rgba(0, 255, 0, 0.2); border: 2px solid #0f0; color: #0f0;
+            font-family: inherit; font-size: 1.2rem; font-weight: bold; padding: 15px 30px;
+            border-radius: 5px; cursor: pointer; box-shadow: 0 0 15px rgba(0,255,0,0.3); margin-bottom: 10px;
+        }
+        
+        #briefing-screen { display: none; justify-content: flex-start; padding-top: 15vh; }
+        #briefing-text { font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px; text-shadow: 0 0 4px #0f0; min-height: 250px;}
+        
+        /* Mission Board Screen */
+        #mission-board-screen { display: none; text-align: center; }
+        #mission-board-screen h2 { color: #ff0; text-shadow: 0 0 10px #ff0; font-size: 2rem; margin-bottom: 10px; }
+        .bounty-card {
+            border: 2px dashed #ff0; background: rgba(255, 255, 0, 0.1); padding: 20px;
+            border-radius: 10px; margin-bottom: 30px; width: 90%;
+        }
+        .bounty-card h3 { color: #fff; font-size: 1.5rem; margin: 0 0 10px 0; }
+        .bounty-card p { color: #ff0; font-size: 1.1rem; margin: 5px 0; }
 
-        /* Proof Specific */
         #proof-screen { display: none; }
         #proof-image { width: 100%; max-height: 70%; object-fit: contain; border: 4px solid #f00; margin-bottom: 20px; }
         .red-btn {
@@ -137,26 +155,40 @@
             border-radius: 30px; cursor: pointer; box-shadow: 0 0 15px rgba(255,0,0,0.3);
         }
 
-        /* Gallery Specific */
         #gallery-screen { display: none; justify-content: flex-start; padding-top: 40px; }
         #gallery-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%;
-            overflow-y: auto; max-height: 75vh; margin-bottom: 20px; padding: 10px;
+            overflow-y: auto; max-height: 70vh; margin-bottom: 20px; padding: 10px;
         }
         .gallery-item { width: 100%; border: 2px solid #0f0; border-radius: 5px; }
-        .green-btn {
-            background-color: rgba(0, 255, 0, 0.2); border: 2px solid #0f0; color: #0f0;
-            font-family: inherit; font-size: 1.1rem; font-weight: bold; padding: 15px 25px; border-radius: 30px;
-        }
 
     </style>
 </head>
 <body>
 
+<div id="profile-screen" class="modal-screen">
+    <div class="scanlines"></div>
+    <h1>HQ IDENTIFICATION</h1>
+    <p>ENTER AGENT NAME:</p>
+    <input type="text" id="agent-input" placeholder="E.g. FREYA" autocomplete="off">
+    <button id="login-btn" class="green-btn">AUTHORIZE</button>
+</div>
+
 <div id="briefing-screen" class="modal-screen">
     <div class="scanlines"></div>
     <div id="briefing-text"></div>
-    <button id="accept-btn">ACCEPT MISSION</button>
+    <button id="accept-btn" class="green-btn" style="display:none;">ACCEPT MISSION</button>
+</div>
+
+<div id="mission-board-screen" class="modal-screen">
+    <div class="scanlines"></div>
+    <h2>⚠️ ACTIVE BOUNTY ⚠️</h2>
+    <div class="bounty-card">
+        <p>TARGET SPECIES:</p>
+        <h3 id="bounty-target-name">UNKNOWN</h3>
+        <p>REWARD: SPECIAL COMMENDATION</p>
+    </div>
+    <button id="close-mission-btn" class="green-btn">RETURN TO SCANNER</button>
 </div>
 
 <div id="video-container">
@@ -167,8 +199,15 @@
     <div id="overlay"></div>
     <div id="ui-layer">
         <div class="top-bar">
-            <div id="score-display">ALIENS: 0</div>
-            <button id="gallery-btn">INTEL DB</button>
+            <div class="info-panel">
+                <span id="agent-name-display">AGENT: ???</span>
+                <span id="agent-rank-display">RANK: TRAINEE<br>CAUGHT: 0 | BOUNTIES: 0</span>
+            </div>
+            <div class="btn-group">
+                <button id="mission-btn" class="btn-small btn-small-yellow">MISSIONS</button>
+                <button id="vision-btn" class="btn-small">VISION</button>
+                <button id="gallery-btn" class="btn-small">INTEL DB</button>
+            </div>
         </div>
         <div id="status-text">SYSTEM ONLINE</div>
         <button id="scan-btn">SCAN TARGET</button>
@@ -184,9 +223,10 @@
 
 <div id="gallery-screen" class="modal-screen">
     <div class="scanlines"></div>
-    <h2 style="margin-top:0;">CLASSIFIED DATABASE</h2>
+    <h2 style="margin-top:0; color:#fff;">CLASSIFIED DATABASE</h2>
     <div id="gallery-grid"></div>
     <button id="close-gallery-btn" class="green-btn">RETURN TO SCANNER</button>
+    <button id="logout-btn" class="red-btn" style="margin-top:10px; padding:10px; font-size:1rem;">SWITCH AGENT</button>
 </div>
 
 <canvas id="canvas-processor" style="display:none;"></canvas>
@@ -198,7 +238,10 @@
     const scanBtn = document.getElementById('scan-btn');
     const radarLine = document.getElementById('radar-line');
     
-    // Screens & Buttons
+    // Modals & Buttons
+    const profileScreen = document.getElementById('profile-screen');
+    const agentInput = document.getElementById('agent-input');
+    const loginBtn = document.getElementById('login-btn');
     const briefingScreen = document.getElementById('briefing-screen');
     const briefingText = document.getElementById('briefing-text');
     const acceptBtn = document.getElementById('accept-btn');
@@ -209,8 +252,15 @@
     const galleryScreen = document.getElementById('gallery-screen');
     const galleryBtn = document.getElementById('gallery-btn');
     const closeGalleryBtn = document.getElementById('close-gallery-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     const galleryGrid = document.getElementById('gallery-grid');
-    const scoreDisplay = document.getElementById('score-display');
+    const visionBtn = document.getElementById('vision-btn');
+    const missionBtn = document.getElementById('mission-btn');
+    const missionBoardScreen = document.getElementById('mission-board-screen');
+    const closeMissionBtn = document.getElementById('close-mission-btn');
+    const bountyTargetName = document.getElementById('bounty-target-name');
+    const agentNameDisplay = document.getElementById('agent-name-display');
+    const agentRankDisplay = document.getElementById('agent-rank-display');
     
     const canvas = document.getElementById('canvas-processor');
     const ctx = canvas.getContext('2d');
@@ -224,19 +274,17 @@
     let audioCtx;
     let forceAlien = false;
     let holdTimer;
+    let currentAgent = "";
     let intelDatabase = [];
-
-    if (localStorage.getItem('alienIntel')) {
-        intelDatabase = JSON.parse(localStorage.getItem('alienIntel'));
-        updateScore();
-    }
+    let agentBounties = 0;
+    let currentBounty = "";
+    let visionMode = 0;
 
     function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 
     function playSound(type) {
         if (!audioCtx) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         if (type === 'alien') {
             osc.type = 'sawtooth'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(300, audioCtx.currentTime + 0.3);
@@ -250,15 +298,101 @@
             osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime);
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
             osc.start(); osc.stop(audioCtx.currentTime + 0.08);
+        } else if (type === 'bounty') {
+            // Special happy chime for bounty
+            osc.type = 'sine'; osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(554.37, audioCtx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
         }
     }
 
-    function vibrate(pattern) {
-        if (navigator.vibrate) navigator.vibrate(pattern);
+    function vibrate(pattern) { if (navigator.vibrate) navigator.vibrate(pattern); }
+
+    function getRank(count) {
+        if (count < 3) return "TRAINEE";
+        if (count < 7) return "FIELD AGENT";
+        if (count < 15) return "SENIOR AGENT";
+        return "ELITE HUNTER";
     }
 
-    // --- MISSION BRIEFING TYPEWRITER ---
-    const missionText = "CLASSIFIED BRIEFING...\n\nAGENT: Earth has been infiltrated.\n\nAliens are walking among us, disguised as normal humans. Your mission is to use this Biometric Scanner to expose them and build an Intel Database of the threats.\n\nAim the reticle at a subject's face and initiate scan.\n\nGood luck.";
+    function updateAgentDisplay() {
+        agentNameDisplay.innerText = `AGENT: ${currentAgent}`;
+        agentRankDisplay.innerHTML = `RANK: ${getRank(intelDatabase.length)}<br>CAUGHT: ${intelDatabase.length} | BOUNTIES: ${agentBounties}`;
+    }
+
+    function assignNewBounty() {
+        currentBounty = data_species[Math.floor(Math.random() * data_species.length)];
+        localStorage.setItem(`bountyTarget_${currentAgent}`, currentBounty);
+        bountyTargetName.innerText = currentBounty;
+    }
+
+    loginBtn.addEventListener('click', () => {
+        initAudio();
+        const name = agentInput.value.trim().toUpperCase();
+        if (name === "") return;
+        
+        currentAgent = name;
+        
+        // Load Database
+        const savedData = localStorage.getItem(`alienIntel_${currentAgent}`);
+        intelDatabase = savedData ? JSON.parse(savedData) : [];
+        
+        // Load Bounties Completed
+        const savedBounties = localStorage.getItem(`alienBounties_${currentAgent}`);
+        agentBounties = savedBounties ? parseInt(savedBounties) : 0;
+
+        // Load Current Target
+        const savedTarget = localStorage.getItem(`bountyTarget_${currentAgent}`);
+        if (savedTarget) {
+            currentBounty = savedTarget;
+            bountyTargetName.innerText = currentBounty;
+        } else {
+            assignNewBounty();
+        }
+        
+        updateAgentDisplay();
+        playSound('beep');
+        profileScreen.style.display = 'none';
+        briefingScreen.style.display = 'flex';
+        typeWriter();
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        galleryScreen.style.display = 'none';
+        videoContainer.style.display = 'none';
+        agentInput.value = "";
+        profileScreen.style.display = 'flex';
+    });
+
+    // --- MISSION & VISION CONTROLS ---
+    missionBtn.addEventListener('click', () => {
+        playSound('beep');
+        missionBoardScreen.style.display = 'flex';
+    });
+    
+    closeMissionBtn.addEventListener('click', () => {
+        playSound('beep');
+        missionBoardScreen.style.display = 'none';
+    });
+
+    visionBtn.addEventListener('click', () => {
+        visionMode = (visionMode + 1) % 3;
+        video.className = ''; 
+        if (visionMode === 1) {
+            video.classList.add('filter-night');
+            statusText.innerText = "NIGHT VISION";
+        } else if (visionMode === 2) {
+            video.classList.add('filter-thermal');
+            statusText.innerText = "THERMAL IMAGING";
+        } else {
+            statusText.innerText = "SYSTEM ONLINE";
+        }
+        playSound('beep');
+    });
+
+    const missionText = "CLASSIFIED BRIEFING...\n\nEarth has been infiltrated.\n\nAliens are walking among us, disguised as normal humans. Your mission is to use this Biometric Scanner to expose them and build an Intel Database.\n\nCheck the BOUNTY BOARD for Priority Targets.\n\nGood luck.";
     let typeIndex = 0;
     
     function typeWriter() {
@@ -273,7 +407,7 @@
     }
 
     acceptBtn.addEventListener('click', () => {
-        initAudio();
+        playSound('beep');
         briefingScreen.style.display = 'none';
         videoContainer.style.display = 'block';
         setupCamera();
@@ -288,21 +422,15 @@
         }
     }
 
-    function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
     function wrapText(context, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
+        const words = text.split(' '); let line = '';
         for(let n = 0; n < words.length; n++) {
             const testLine = line + words[n] + ' ';
             const metrics = context.measureText(testLine);
             if (metrics.width > maxWidth && n > 0) {
                 context.strokeText(line, x, y); context.fillText(line, x, y);
-                line = words[n] + ' ';
-                y += lineHeight;
-            } else {
-                line = testLine;
-            }
+                line = words[n] + ' '; y += lineHeight;
+            } else { line = testLine; }
         }
         context.strokeText(line, x, y); context.fillText(line, x, y);
         return y + lineHeight; 
@@ -310,11 +438,14 @@
 
     function generateEvidenceReport() {
         canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        
+        if(visionMode === 1) ctx.filter = 'sepia(100%) hue-rotate(90deg) saturate(300%) contrast(150%)';
+        if(visionMode === 2) ctx.filter = 'invert(1) hue-rotate(180deg) saturate(200%) contrast(120%)';
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none'; 
 
         const w = canvas.width; const h = canvas.height;
-        const margin = Math.floor(w * 0.05);
-        const lineHeight = Math.floor(h * 0.04); 
+        const margin = Math.floor(w * 0.05); const lineHeight = Math.floor(h * 0.04); 
         
         ctx.fillStyle = "rgba(255, 255, 255, 0.9)"; ctx.strokeStyle = "black";
         ctx.lineWidth = Math.floor(w * 0.005); ctx.font = `bold ${Math.floor(h * 0.035)}px Courier New`; 
@@ -336,16 +467,38 @@
             currentY += (lineHeight * 0.5); 
         };
 
+        // ALIEN GENERATION LOGIC
+        // 40% chance to guarantee the bounty target makes it achievable for kids!
+        let generatedSpecies = data_species[Math.floor(Math.random() * data_species.length)];
+        if (Math.random() < 0.40) {
+            generatedSpecies = currentBounty;
+        }
+
+        const isBountyCaught = (generatedSpecies === currentBounty);
+
         ctx.fillStyle = "#f00"; ctx.font = `bold ${Math.floor(h * 0.05)}px Courier New`;
         ctx.fillText(`ALIEN CONFIRMED`, margin, margin * 2);
 
+        // BOUNTY STAMP
+        if (isBountyCaught) {
+            ctx.fillStyle = "#0f0"; ctx.font = `bold ${Math.floor(h * 0.045)}px Courier New`;
+            ctx.fillText(`★ BOUNTY CLAIMED ★`, margin, margin * 2 + (h * 0.06));
+            playSound('bounty');
+            
+            // Update Backend
+            agentBounties++;
+            localStorage.setItem(`alienBounties_${currentAgent}`, agentBounties);
+            assignNewBounty();
+            updateAgentDisplay();
+        }
+
         ctx.font = `bold ${Math.floor(h * 0.035)}px Courier New`;
-        printLine("SPECIES", pickRandom(data_species));
-        printLine("ORIGIN", pickRandom(data_planets));
+        printLine("SPECIES", generatedSpecies);
+        printLine("ORIGIN", data_planets[Math.floor(Math.random() * data_planets.length)]);
         
-        let threat = pickRandom(data_threats);
+        let threat = data_threats[Math.floor(Math.random() * data_threats.length)];
         printLine("THREAT", threat, threat.includes("MAXIMUM") ? "#f00" : "#fff");
-        printLine("HABIT", pickRandom(data_habits));
+        printLine("HABIT", data_habits[Math.floor(Math.random() * data_habits.length)]);
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         proofImage.src = dataUrl;
@@ -386,29 +539,29 @@
                 setTimeout(() => { playSound('camera'); generateEvidenceReport(); }, 1700);
             } else {
                 statusText.innerText = "SUBJECT: 100% HUMAN"; overlay.style.backgroundColor = "rgba(0, 255, 0, 0.25)"; vibrate([100, 50, 100]);
-                setTimeout(() => { statusText.innerText = "SYSTEM ONLINE"; overlay.style.backgroundColor = "rgba(0, 0, 0, 0)"; scanBtn.disabled = false; }, 2500);
+                setTimeout(() => { 
+                    statusText.innerText = visionMode === 1 ? "NIGHT VISION" : visionMode === 2 ? "THERMAL IMAGING" : "SYSTEM ONLINE"; 
+                    overlay.style.backgroundColor = "rgba(0, 0, 0, 0)"; scanBtn.disabled = false; 
+                }, 2500);
             }
         }, 2200); 
     });
 
-    function updateScore() {
-        scoreDisplay.innerText = `ALIENS: ${intelDatabase.length}`;
-    }
-
     dismissBtn.addEventListener('click', () => {
         intelDatabase.unshift(proofImage.dataset.tempImageData); 
-        localStorage.setItem('alienIntel', JSON.stringify(intelDatabase));
-        updateScore();
+        localStorage.setItem(`alienIntel_${currentAgent}`, JSON.stringify(intelDatabase));
+        updateAgentDisplay();
         
         proofScreen.style.display = 'none';
-        statusText.innerText = "SYSTEM ONLINE"; statusText.classList.remove('alien-active');
+        statusText.innerText = visionMode === 1 ? "NIGHT VISION" : visionMode === 2 ? "THERMAL IMAGING" : "SYSTEM ONLINE";
+        statusText.classList.remove('alien-active');
         overlay.style.backgroundColor = "rgba(0, 0, 0, 0)"; scanBtn.disabled = false;
     });
 
     galleryBtn.addEventListener('click', () => {
         galleryGrid.innerHTML = ''; 
         if(intelDatabase.length === 0) {
-            galleryGrid.innerHTML = '<p>No aliens detected yet.</p>';
+            galleryGrid.innerHTML = '<p style="color:#fff;">No aliens detected yet.</p>';
         } else {
             intelDatabase.forEach(imgSrc => {
                 const img = document.createElement('img');
@@ -421,15 +574,8 @@
 
     closeGalleryBtn.addEventListener('click', () => { galleryScreen.style.display = 'none'; });
 
-    window.addEventListener('load', () => { initAudio(); typeWriter(); });
-
-    // --- PWA SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker Registered!', reg))
-                .catch(err => console.error('Service Worker Failed!', err));
-        });
+        window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); });
     }
 </script>
 </body>
