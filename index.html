@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Alien Detector: Special Agent Edition</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.svg">
+
     <style>
         body, html {
             margin: 0; padding: 0; height: 100%;
@@ -218,9 +224,8 @@
     let audioCtx;
     let forceAlien = false;
     let holdTimer;
-    let intelDatabase = []; // Array to store saved images
+    let intelDatabase = [];
 
-    // Load saved database on startup
     if (localStorage.getItem('alienIntel')) {
         intelDatabase = JSON.parse(localStorage.getItem('alienIntel'));
         updateScore();
@@ -260,7 +265,7 @@
         if (typeIndex < missionText.length) {
             briefingText.innerHTML += missionText.charAt(typeIndex) === '\n' ? '<br>' : missionText.charAt(typeIndex);
             typeIndex++;
-            if(typeIndex % 3 === 0) playSound('beep'); // Occasional typing sound
+            if(typeIndex % 3 === 0) playSound('beep'); 
             setTimeout(typeWriter, 40);
         } else {
             acceptBtn.style.display = 'block';
@@ -285,7 +290,6 @@
 
     function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-    // --- TEXT WRAP FUNCTION ---
     function wrapText(context, text, x, y, maxWidth, lineHeight) {
         const words = text.split(' ');
         let line = '';
@@ -316,31 +320,25 @@
         ctx.lineWidth = Math.floor(w * 0.005); ctx.font = `bold ${Math.floor(h * 0.035)}px Courier New`; 
         ctx.textBaseline = "top";
 
-        // Calculate a safe width for wrapping text
         const maxTextWidth = w - (margin * 2);
-        
-        // Let's position the background box for all text
         ctx.fillStyle = "rgba(0,0,0,0.6)"; 
         ctx.fillRect(margin - 10, h * 0.55, w - (margin * 2) + 20, h * 0.45);
 
         let currentY = h * 0.58;
 
         const printLine = (label, value, color="#fff") => {
-            ctx.fillStyle = "#ff0"; // Label
+            ctx.fillStyle = "#ff0"; 
             ctx.strokeText(`${label}:`, margin, currentY); ctx.fillText(`${label}:`, margin, currentY);
             
             const labelWidth = ctx.measureText(`${label}: `).width;
-            ctx.fillStyle = color; // Value
-            
-            // Wrap the value text so it doesn't go off screen
+            ctx.fillStyle = color; 
             currentY = wrapText(ctx, value, margin + labelWidth, currentY, maxTextWidth - labelWidth, lineHeight);
-            currentY += (lineHeight * 0.5); // Add a little space between entries
+            currentY += (lineHeight * 0.5); 
         };
 
         ctx.fillStyle = "#f00"; ctx.font = `bold ${Math.floor(h * 0.05)}px Courier New`;
         ctx.fillText(`ALIEN CONFIRMED`, margin, margin * 2);
 
-        // Reset font for body
         ctx.font = `bold ${Math.floor(h * 0.035)}px Courier New`;
         printLine("SPECIES", pickRandom(data_species));
         printLine("ORIGIN", pickRandom(data_planets));
@@ -353,11 +351,9 @@
         proofImage.src = dataUrl;
         proofScreen.style.display = 'flex';
         
-        // Save to temporary variable, finalized on dismiss
         proofImage.dataset.tempImageData = dataUrl; 
     }
 
-    // --- CHEAT CONTROLS ---
     function startHoldTimer() {
         holdTimer = setTimeout(() => { forceAlien = true; scanBtn.style.borderColor = "#f00"; setTimeout(() => { scanBtn.style.borderColor = "#0f0"; }, 300); vibrate(50); }, 2000);
     }
@@ -366,7 +362,6 @@
     scanBtn.addEventListener('mousedown', startHoldTimer); scanBtn.addEventListener('touchstart', startHoldTimer, {passive: true});
     scanBtn.addEventListener('mouseup', cancelHoldTimer); scanBtn.addEventListener('mouseleave', cancelHoldTimer); scanBtn.addEventListener('touchend', cancelHoldTimer);
 
-    // --- MAIN LOGIC ---
     scanBtn.addEventListener('click', () => {
         initAudio(); scanBtn.disabled = true; statusText.innerText = "SCANNING..."; statusText.classList.remove('alien-active');
         radarLine.style.opacity = "1"; radarLine.style.animation = "scanMove 1.5s ease-in-out infinite";
@@ -380,7 +375,7 @@
 
             if (isAlien) {
                 statusText.innerText = "⚠️ ALIEN DETECTED ⚠️"; statusText.classList.add('alien-active');
-                vibrate([200, 100, 200, 100, 400]); // SOS style vibration
+                vibrate([200, 100, 200, 100, 400]); 
                 
                 let strobe = setInterval(() => { overlay.style.backgroundColor = overlay.style.backgroundColor === "rgba(255, 0, 0, 0.7)" ? "rgba(0, 0, 0, 0)" : "rgba(255, 0, 0, 0.7)"; }, 100);
                 setTimeout(() => clearInterval(strobe), 1500);
@@ -396,14 +391,12 @@
         }, 2200); 
     });
 
-    // --- SAVE AND GALLERY LOGIC ---
     function updateScore() {
         scoreDisplay.innerText = `ALIENS: ${intelDatabase.length}`;
     }
 
     dismissBtn.addEventListener('click', () => {
-        // Save the image
-        intelDatabase.unshift(proofImage.dataset.tempImageData); // Add to beginning
+        intelDatabase.unshift(proofImage.dataset.tempImageData); 
         localStorage.setItem('alienIntel', JSON.stringify(intelDatabase));
         updateScore();
         
@@ -413,7 +406,7 @@
     });
 
     galleryBtn.addEventListener('click', () => {
-        galleryGrid.innerHTML = ''; // Clear old images
+        galleryGrid.innerHTML = ''; 
         if(intelDatabase.length === 0) {
             galleryGrid.innerHTML = '<p>No aliens detected yet.</p>';
         } else {
@@ -428,8 +421,16 @@
 
     closeGalleryBtn.addEventListener('click', () => { galleryScreen.style.display = 'none'; });
 
-    // Start typewriter effect on load
     window.addEventListener('load', () => { initAudio(); typeWriter(); });
+
+    // --- PWA SERVICE WORKER REGISTRATION ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker Registered!', reg))
+                .catch(err => console.error('Service Worker Failed!', err));
+        });
+    }
 </script>
 </body>
 </html>
